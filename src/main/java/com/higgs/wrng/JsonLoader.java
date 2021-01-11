@@ -1,17 +1,54 @@
 package com.higgs.wrng;
 
+import com.higgs.wrng.ui.WRNGFrame;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.*;
+import javax.swing.*;
+import java.awt.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 public final class JsonLoader {
     private final File file;
 
     private final List<String> choices = new LinkedList<>();
     private final List<Integer> weights = new LinkedList<>();
+
+    public static void load(final WRNGFrame parent) {
+        final FileDialog fd = new FileDialog(parent);
+        fd.setDirectory(System.getProperty("user.dir"));
+        fd.setFilenameFilter((dir, name) -> name.endsWith("json"));
+        fd.setMultipleMode(false);
+        fd.setTitle("Load");
+
+        fd.setMode(FileDialog.LOAD);
+
+        fd.setVisible(true);
+
+        SwingUtilities.invokeLater(() -> {
+            final File[] files = fd.getFiles();
+            if (files.length > 0) {
+                final File file = files[0];
+                final JsonLoader loader = new JsonLoader(file);
+                loader.load();
+
+                final String[] choices = loader.getChoices();
+                final Integer[] weights = loader.getWeights();
+
+                parent.clearRows();
+
+                IntStream.range(0, choices.length).forEach(i -> parent.addRow());
+                parent.setChoices(choices);
+                parent.setWeights(weights);
+            }
+        });
+    }
 
     public JsonLoader(final File file) {
         if (file == null || !file.exists() || file.isDirectory()) {

@@ -2,15 +2,12 @@ package com.higgs.wrng.ui;
 
 import com.higgs.wrng.JsonLoader;
 import com.higgs.wrng.JsonSaveBuilder;
-import com.higgs.wrng.WeightedRandomNumberGenerator;
+import com.higgs.wrng.WRNGController;
 
 import javax.swing.*;
 import javax.swing.border.BevelBorder;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableCellRenderer;
 import java.awt.*;
-import java.io.File;
-import java.util.Arrays;
 import java.util.stream.IntStream;
 
 public class WRNGFrame extends JFrame {
@@ -32,9 +29,10 @@ public class WRNGFrame extends JFrame {
     private final JTable table = new JTable();
     private final DefaultTableModel model = new DefaultTableModel();
 
+    private final WRNGController wrng = new WRNGController();
+
     public WRNGFrame() {
         super(WRNGFrame.TITLE);
-
         this.init();
     }
 
@@ -80,10 +78,11 @@ public class WRNGFrame extends JFrame {
         final JButton remove = new JButton(WRNGFrame.REMOVE);
         final JButton clear = new JButton(WRNGFrame.CLEAR);
 
-        normalize.addActionListener(e -> this.normalize());
+        normalize.addActionListener(e -> this.setWeights(this.wrng.normalize(this.getWeights())));
         normalize.setToolTipText("Sets the total weight to 100 and scales everything accordingly.");
+
         fillLast.addActionListener(e -> this.fillLast());
-        redistribute.addActionListener(e -> this.redistribute());
+        redistribute.addActionListener(e -> this.setWeights(this.wrng.redistribute(this.getWeights())));
 
         add.addActionListener(e -> this.addRow());
         remove.addActionListener(e -> this.removeRow());
@@ -112,7 +111,6 @@ public class WRNGFrame extends JFrame {
         this.model.setColumnIdentifiers(new String[]{"Choice", "Weight"});
         this.table.setModel(this.model);
         this.table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
         this.table.setBorder(BorderFactory.createBevelBorder(BevelBorder.LOWERED));
     }
 
@@ -127,8 +125,8 @@ public class WRNGFrame extends JFrame {
         final JButton close = new JButton(WRNGFrame.CLOSE);
 
         randomize.addActionListener(e -> this.showResult(lastResult));
-        save.addActionListener(e -> this.save());
-        load.addActionListener(e -> this.load());
+        save.addActionListener(e -> JsonSaveBuilder.save(this));
+        load.addActionListener(e -> JsonLoader.load(this));
         close.addActionListener(e -> System.exit(0));
 
         panel.add(lastResult);
@@ -141,22 +139,8 @@ public class WRNGFrame extends JFrame {
         return panel;
     }
 
-    private void normalize() {
-        final Integer[] weights = this.getWeights();
-        final Integer[] newWeights = new Integer[weights.length];
-        final int prevSum = this.sumWeights();
-        final double[] proportions = new double[weights.length];
-
-        for (int i = 0; i < weights.length; i++) {
-            proportions[i] = Double.valueOf(weights[i]) / prevSum;
-            newWeights[i] = (int) (proportions[i] * 100.0);
-        }
-
-        this.setWeights(newWeights);
-    }
-
     private void fillLast() {
-        final int sum = this.sumWeights();
+        final int sum = this.wrng.sumWeights(this.getWeights());
         if (sum >= 100) {
             JOptionPane.showMessageDialog(this, "Total is already greater than 100. Try normalizing.");
         } else {
@@ -168,16 +152,7 @@ public class WRNGFrame extends JFrame {
         }
     }
 
-    private void redistribute() {
-        final Integer[] weights = this.getWeights();
-        final Integer[] newWeights = new Integer[weights.length];
-
-        Arrays.fill(newWeights, this.sumWeights() / weights.length);
-
-        this.setWeights(newWeights);
-    }
-
-    private void addRow() {
+    public void addRow() {
         this.model.addRow(new String[]{String.format("Choice %s", this.model.getRowCount() + 1), "1"});
         this.selectLast();
     }
@@ -190,7 +165,7 @@ public class WRNGFrame extends JFrame {
         }
     }
 
-    private void clearRows() {
+    public void clearRows() {
         IntStream.range(0, this.table.getRowCount()).forEach(i -> this.removeRow());
     }
 
@@ -201,80 +176,18 @@ public class WRNGFrame extends JFrame {
         }
     }
 
-    private int sumWeights() {
-        int sumWeights = 0;
-        for (final int weight : this.getWeights()) {
-            sumWeights += weight;
-        }
-        return sumWeights;
-    }
-
     private void showResult(final JLabel resultLabel) {
-        final WeightedRandomNumberGenerator wrng = new WeightedRandomNumberGenerator(this.getWeights());
-//        JOptionPane.showMessageDialog(this, String.format("Choice is: %s", this.table.getValueAt(wrng.getResult(), 0)));
-        resultLabel.setText(String.valueOf(this.table.getValueAt(wrng.getResult(), 0)));
+        resultLabel.setText(String.valueOf(this.table.getValueAt(this.wrng.getWeightedRandomNumber(this.getWeights()), 0)));
     }
 
-    private void save() {
-        final FileDialog fd = new FileDialog(this);
-        fd.setDirectory(System.getProperty("user.dir"));
-        fd.setFilenameFilter((dir, name) -> name.endsWith("json"));
-        fd.setMultipleMode(false);
-        fd.setTitle("Save");
-
-        fd.setMode(FileDialog.SAVE);
-
-        fd.setLocationRelativeTo(null);
-        fd.setVisible(true);
-
-        final File[] files = fd.getFiles();
-        if (files.length > 0) {
-            final File file = files[0];
-            JsonSaveBuilder.create()
-                    .setChoices(this.getChoices())
-                    .setWeights(this.getWeights())
-                    .save(file);
-        }
-    }
-
-    private void load() {
-        final FileDialog fd = new FileDialog(this);
-        fd.setDirectory(System.getProperty("user.dir"));
-        fd.setFilenameFilter((dir, name) -> name.endsWith("json"));
-        fd.setMultipleMode(false);
-        fd.setTitle("Load");
-
-        fd.setMode(FileDialog.LOAD);
-
-        fd.setVisible(true);
-
-        SwingUtilities.invokeLater(() -> {
-            final File[] files = fd.getFiles();
-            if (files.length > 0) {
-                final File file = files[0];
-                final JsonLoader loader = new JsonLoader(file);
-                loader.load();
-
-                final String[] choices = loader.getChoices();
-                final Integer[] weights = loader.getWeights();
-
-                this.clearRows();
-
-                IntStream.range(0, choices.length).forEach(i -> this.addRow());
-                this.setChoices(choices);
-                this.setWeights(weights);
-            }
-        });
-    }
-
-    private String[] getChoices() {
+    public String[] getChoices() {
         return IntStream.range(0, this.table.getRowCount())
                 .mapToObj(i -> this.table.getModel().getValueAt(i, 0))
                 .map(String::valueOf)
                 .toArray(String[]::new);
     }
 
-    private Integer[] getWeights() {
+    public Integer[] getWeights() {
         return IntStream.range(0, this.table.getRowCount())
                 .mapToObj(i -> this.table.getModel().getValueAt(i, 1))
                 .map(String::valueOf)
@@ -282,7 +195,7 @@ public class WRNGFrame extends JFrame {
                 .toArray(Integer[]::new);
     }
 
-    private void setChoices(final String[] choices) {
+    public void setChoices(final String[] choices) {
         if (this.table.getRowCount() < choices.length) {
             throw new IllegalArgumentException("Too many choices for table!");
         }
@@ -290,7 +203,7 @@ public class WRNGFrame extends JFrame {
         this.setValuesInColumn(choices, 0);
     }
 
-    private void setWeights(final Integer[] weights) {
+    public void setWeights(final Integer[] weights) {
         if (this.table.getRowCount() < weights.length) {
             throw new IllegalArgumentException("Too many weights for table!");
         }

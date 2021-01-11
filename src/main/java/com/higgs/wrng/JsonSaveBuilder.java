@@ -1,9 +1,10 @@
 package com.higgs.wrng;
 
+import com.higgs.wrng.ui.WRNGFrame;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.json.JSONStringer;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -18,7 +19,30 @@ public final class JsonSaveBuilder {
     private String[] choices;
     private Integer[] weights;
 
-    private JsonSaveBuilder() { }
+    private JsonSaveBuilder() {
+    }
+
+    public static void save(final WRNGFrame parent) {
+        final FileDialog fd = new FileDialog(parent);
+        fd.setDirectory(System.getProperty("user.dir"));
+        fd.setFilenameFilter((dir, name) -> name.endsWith("json"));
+        fd.setMultipleMode(false);
+        fd.setTitle("Save");
+
+        fd.setMode(FileDialog.SAVE);
+
+        fd.setLocationRelativeTo(null);
+        fd.setVisible(true);
+
+        final File[] files = fd.getFiles();
+        if (files.length > 0) {
+            final File file = files[0];
+            JsonSaveBuilder.create()
+                    .setChoices(parent.getChoices())
+                    .setWeights(parent.getWeights())
+                    .save(file);
+        }
+    }
 
     public JsonSaveBuilder setChoices(final String[] choices) {
         if (choices == null) throw new IllegalArgumentException("Choices cannot be null for saving!");
