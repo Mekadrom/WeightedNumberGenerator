@@ -22,7 +22,9 @@ public class WRNGController {
     public Integer[] redistribute(final Integer[] weights) {
         final Integer[] newWeights = new Integer[weights.length];
 
-        Arrays.fill(newWeights, this.sumWeights(weights) / weights.length);
+        if (weights.length > 0) {
+            Arrays.fill(newWeights, this.sumWeights(weights) / weights.length);
+        }
 
         return newWeights;
     }
