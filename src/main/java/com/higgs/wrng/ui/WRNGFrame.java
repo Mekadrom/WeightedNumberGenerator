@@ -52,14 +52,14 @@ public class WRNGFrame extends JFrame {
 
         this.initTable();
 
-        final JScrollPane tableScroller = new JScrollPane();
+        final JScrollPane tableScroller = new JScrollPane(this.table);
         tableScroller.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         tableScroller.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
         tableScroller.setVerticalScrollBar(tableScroller.createVerticalScrollBar());
 
         final JPanel tablePanel = new JPanel(new BorderLayout());
-        tablePanel.add(this.table, BorderLayout.CENTER);
+        tablePanel.add(tableScroller, BorderLayout.CENTER);
         tablePanel.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
 
         panel.add(tablePanel, BorderLayout.CENTER);
